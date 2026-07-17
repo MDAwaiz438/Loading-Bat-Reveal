@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Batman Loading Screen Loop</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Load Three.js as an ES module map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- The AI image revealed behind the wipe -->
+  <div class="hero">
+    <img src="background.png" alt="Gotham Background" />
+  </div>
+
+  <!-- The loader containing the ThreeJS canvas and the diagonal wipe -->
+  <div id="loader" class="loader"></div>
+
+  <!-- Run the loop script -->
+  <script type="module" src="main.js?v=13"></script>
+</body>
+</html>
