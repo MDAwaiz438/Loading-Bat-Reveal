@@ -195,11 +195,17 @@ function animateLoader() {
 
   if (time >= REVEAL_START - 0.2 && !soundPlayed) {
     soundPlayed = true;
-    const audio = document.getElementById('batSound');
-    if (audio) {
-      audio.currentTime = 0;
-      // Play sound, suppressing the NotAllowedError if the user hasn't clicked yet
-      audio.play().catch(err => console.warn('Click anywhere on the page to enable sound!'));
+    const batAudio = document.getElementById('batSound');
+    const flapAudio = document.getElementById('flapSound');
+    
+    if (batAudio) {
+      batAudio.currentTime = 0;
+      batAudio.play().catch(err => console.warn('Click anywhere on the page to enable sound!'));
+    }
+    if (flapAudio) {
+      flapAudio.currentTime = 0;
+      flapAudio.volume = 0.5; // Slightly lower volume for flapping to blend with swoosh
+      flapAudio.play().catch(err => {});
     }
   }
 
