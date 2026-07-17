@@ -92,6 +92,7 @@ const clock = new THREE.Clock();
 
 let isAnimating = false;
 let loopTimeout = null;
+let soundPlayed = false;
 
 // ── Timing constants (tune these together) ──────────────────────────────
 const BAT_SPEED_MIN = 45;       // units/sec, was 25
@@ -122,6 +123,7 @@ function initBats() {
 
 function startLoop() {
   initBats();
+  soundPlayed = false;
 
   // Snap the black screen back instantly
   loadCanvasContainer.classList.add('no-transition');
@@ -190,6 +192,16 @@ function animateLoader() {
 
   batMesh.instanceMatrix.needsUpdate = true;
   renderer.render(scene, camera);
+
+  if (time >= REVEAL_START - 0.2 && !soundPlayed) {
+    soundPlayed = true;
+    const audio = document.getElementById('batSound');
+    if (audio) {
+      audio.currentTime = 0;
+      // Play sound, suppressing the NotAllowedError if the user hasn't clicked yet
+      audio.play().catch(err => console.warn('Click anywhere on the page to enable sound!'));
+    }
+  }
 
   if (time >= REVEAL_START && !loadCanvasContainer.classList.contains('done')) {
     loadCanvasContainer.classList.add('done');
