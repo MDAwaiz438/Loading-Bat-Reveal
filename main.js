@@ -10,6 +10,9 @@ camera.position.z = 10;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+// Pin the canvas to fully cover the loader container instead of relying
+// solely on flex-centering, which is fragile across resizes.
+renderer.domElement.style.cssText = 'position:absolute;inset:0;z-index:2;';
 loadCanvasContainer.appendChild(renderer.domElement);
 
 const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
@@ -29,7 +32,7 @@ function createCustomBatGeometry() {
   const shapes = SVGLoader.createShapes(parsed.paths[0]);
   const geometry = new THREE.ExtrudeGeometry(shapes, { depth: 0.04, bevelEnabled: false });
   geometry.center();
-  geometry.scale(0.012, -0.012, 0.012); 
+  geometry.scale(0.012, -0.012, 0.012);
   return geometry;
 }
 
@@ -42,12 +45,12 @@ const material = new THREE.ShaderMaterial({
     uniform float uTime;
     attribute float aWingSpeed;
     attribute float aSeed;
-    
+
     void main() {
       vec3 transformed = vec3(position);
       float flapTimeline = uTime * aWingSpeed + aSeed;
       float distanceFromCenter = abs(transformed.x);
-      
+
       if (distanceFromCenter > 0.15) {
         float wave = sin(flapTimeline) * 0.7 * (distanceFromCenter - 0.15);
         transformed.y += wave;
@@ -81,7 +84,7 @@ scene.add(batMesh);
 
 const batsData = [];
 for (let i = 0; i < count; i++) {
-  batsData.push({ speed: 0, seed: 0, waveSpeed: 0, scaleModifier: 0, innateSpread: 0, currentProgress: 0, startX: 0, startY: 0 }); 
+  batsData.push({ speed: 0, seed: 0, waveSpeed: 0, scaleModifier: 0, innateSpread: 0, currentProgress: 0, startX: 0, startY: 0 });
 }
 
 const dummy = new THREE.Object3D();
@@ -90,34 +93,43 @@ const clock = new THREE.Clock();
 let isAnimating = false;
 let loopTimeout = null;
 
+// ── Timing constants (tune these together) ──────────────────────────────
+const BAT_SPEED_MIN = 45;       // units/sec, was 25
+const BAT_SPEED_RANGE = 20;     // was 15 (so range is 45-65)
+const REVEAL_START = 0.5;       // when the CSS wipe (.done) triggers
+const CSS_WIPE_DURATION = 1.3;  // must match style.css transition duration
+const FLIGHT_END = REVEAL_START + CSS_WIPE_DURATION + 0.4; // small buffer after wipe finishes
+const LOOP_PAUSE_MS = 1500;     // pause between loops, was 3000
+// ──────────────────────────────────────────────────────────────────────
+
 function initBats() {
   for (let i = 0; i < count; i++) {
-    const stagger = i / count; 
-    const innateSpread = (Math.random() * 20) - 10; 
-    
+    const stagger = i / count;
+    const innateSpread = (Math.random() * 20) - 10;
+
     batsData[i] = {
       startX: -40 - (stagger * 50),
       startY: -30 - (stagger * 50),
-      currentProgress: -(stagger * 60) - (Math.random() * 10), 
-      speed: 25 + Math.random() * 15, 
+      currentProgress: -(stagger * 60) - (Math.random() * 10),
+      speed: BAT_SPEED_MIN + Math.random() * BAT_SPEED_RANGE,
       waveSpeed: 1 + Math.random() * 3,
       seed: Math.random() * 100,
       scaleModifier: 0.4 + Math.random() * 0.8,
-      innateSpread: innateSpread 
+      innateSpread: innateSpread
     };
   }
 }
 
 function startLoop() {
   initBats();
-  
+
   // Snap the black screen back instantly
   loadCanvasContainer.classList.add('no-transition');
   loadCanvasContainer.classList.remove('done');
-  
+
   // Force reflow so transition snaps immediately
   void loadCanvasContainer.offsetWidth;
-  
+
   // Re-enable transition for the wipe
   loadCanvasContainer.classList.remove('no-transition');
 
@@ -128,7 +140,7 @@ function startLoop() {
 
 function stopAndResetLoop() {
   isAnimating = false;
-  
+
   // Clear the canvas by moving dummy off-screen
   const clearMatrix = new THREE.Matrix4().makeTranslation(999, 999, 999);
   for (let i = 0; i < count; i++) {
@@ -137,23 +149,23 @@ function stopAndResetLoop() {
   batMesh.instanceMatrix.needsUpdate = true;
   renderer.render(scene, camera);
 
-  // Wait 3 seconds, then start again
+  // Wait, then start again
   clearTimeout(loopTimeout);
   loopTimeout = setTimeout(() => {
     startLoop();
-  }, 3000);
+  }, LOOP_PAUSE_MS);
 }
 
 function animateLoader() {
   if (!isAnimating) return;
   requestAnimationFrame(animateLoader);
-  
+
   const time = clock.getElapsedTime();
   material.uniforms.uTime.value = time;
 
   for (let i = 0; i < count; i++) {
     const bat = batsData[i];
-    bat.currentProgress += bat.speed * 0.016; 
+    bat.currentProgress += bat.speed * 0.016;
 
     const spreadFactor = Math.exp(-(bat.currentProgress * bat.currentProgress) / 200.0);
     const dynamicSpread = bat.innateSpread * (1.0 + spreadFactor * 3.5);
@@ -166,7 +178,7 @@ function animateLoader() {
     const floatDriftY = Math.cos(time * bat.waveSpeed + bat.seed) * 0.8;
 
     dummy.position.set(translationX + floatDriftX, translationY + floatDriftY, translationZ);
-    
+
     const distanceScale = THREE.MathUtils.mapLinear(translationZ, -30, 5, 0.1, 1.5);
     const finalScale = Math.max(0.01, distanceScale) * bat.scaleModifier;
     dummy.scale.set(finalScale, finalScale, finalScale);
@@ -175,14 +187,14 @@ function animateLoader() {
     dummy.updateMatrix();
     batMesh.setMatrixAt(i, dummy.matrix);
   }
-  
+
   batMesh.instanceMatrix.needsUpdate = true;
   renderer.render(scene, camera);
 
-  if (time >= 1.2 && !loadCanvasContainer.classList.contains('done')) {
+  if (time >= REVEAL_START && !loadCanvasContainer.classList.contains('done')) {
     loadCanvasContainer.classList.add('done');
   }
-  if (time > 4.5) {
+  if (time > FLIGHT_END) {
     stopAndResetLoop();
   }
 }
